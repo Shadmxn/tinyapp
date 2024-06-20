@@ -2,7 +2,13 @@ const express = require("express");
 const app = express();
 const PORT = 8080; // default port 8080
 
+app.use(express.urlencoded({ extended: true }));
 app.set("view engine", "ejs");
+
+const generateRandomString = () => {
+  return Math.random().toString(36).substring(2, 8);
+};
+
 
 const urlDatabase = {
   b2xVn2: "http://www.lighthouselabs.ca",
@@ -26,11 +32,32 @@ app.get("/urls", (req, res) => {
   res.render("urls_index", templateVars);
 });
 
+app.get("/urls/new", (req, res) => {
+  res.render("urls_new");
+});
+
 app.get("/urls/:id", (req, res) => {
   const id = req.params.id;
   const longURL = urlDatabase[id]; // Lookup the longURL using the id
   const templateVars = { id, longURL };
   res.render("urls_show", templateVars);
+});
+
+app.post("/urls", (req, res) => {
+  const longURL = req.body.longURL;
+  const id = generateRandomString();
+  urlDatabase[id] = longURL;
+  res.redirect(`/urls/${id}`);
+});
+
+app.get("/u/:id", (req, res) => {
+  const id = req.params.id;
+  const longURL = urlDatabase[id];
+  if (longURL) {
+    res.redirect(longURL);
+  } else {
+    res.status(404).send('Short URL not found');
+  }
 });
 
 app.listen(PORT, () => {
