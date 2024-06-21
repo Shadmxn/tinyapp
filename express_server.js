@@ -1,6 +1,10 @@
 const express = require("express");
 const app = express();
 const PORT = 8080; // default port 8080
+const urls = {
+  'b2xVn2': 'http://www.lighthouselabs.ca',
+  '9sm5xK': 'http://www.google.com'
+};
 
 app.use(express.urlencoded({ extended: true }));
 app.set("view engine", "ejs");
@@ -48,6 +52,12 @@ app.post("/urls", (req, res) => {
   const id = generateRandomString();
   urlDatabase[id] = longURL;
   res.redirect(`/urls/${id}`);
+});
+
+app.post('/urls/:id/delete', (req, res) => {
+  const urlId = req.params.id;
+  delete urls[urlId];
+  res.redirect('/urls');
 });
 
 app.get("/u/:id", (req, res) => {
