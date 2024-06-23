@@ -92,6 +92,7 @@ app.get('/urls/new', (req, res) => {
 
 app.get('/logout', (req, res) => {
   res.clearCookie('username');
+  res.clearCookie('session_id');
   res.redirect('/urls');
 });
 
