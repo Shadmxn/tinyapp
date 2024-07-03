@@ -11,37 +11,47 @@ const generateRandomString = () => {
   return Math.random().toString(36).substring(2, 8);
 };
 
+const users = {
+  userRandomID: {
+    id: "userRandomID",
+    email: "a@a.com",
+    password: "1234",
+  },
+  user2RandomID: {
+    id: "user2RandomID",
+    email: "user2@example.com",
+    password: "dishwasher-funk",
+  },
+};
+
 const urlDatabase = {
   b2xVn2: "http://www.lighthouselabs.ca",
   "9sm5xK": "http://www.google.com",
 };
 
 app.get("/", (req, res) => {
-  const templateVars = { username: req.cookies["username"] };
+  const user = users[req.cookies["user_id"]];
+  const templateVars = { user };
   res.render("home", templateVars);
 });
 
 app.get("/urls", (req, res) => {
-  const templateVars = { 
-    username: req.cookies["username"],
-    urls: urlDatabase 
-  };
+  const user = users[req.cookies["user_id"]];
+  const templateVars = { user, urls: urlDatabase };
   res.render("urls_index", templateVars);
 });
 
 app.get("/urls/new", (req, res) => {
-  const templateVars = { username: req.cookies["username"] };
+  const user = users[req.cookies["user_id"]];
+  const templateVars = { user };
   res.render("urls_new", templateVars);
 });
 
 app.get("/urls/:id", (req, res) => {
+  const user = users[req.cookies["user_id"]];
   const id = req.params.id;
   const longURL = urlDatabase[id];
-  const templateVars = {
-    username: req.cookies["username"],
-    id,
-    longURL
-  };
+  const templateVars = { user, id, longURL };
   res.render("urls_show", templateVars);
 });
 
@@ -67,32 +77,12 @@ app.post('/urls/:id', (req, res) => {
 
 app.post('/login', (req, res) => {
   const username = req.body.username;
-  res.cookie('username', username);
+  res.cookie('user_id', username);
   res.redirect('/urls');
 });
 
 app.post('/logout', (req, res) => {
-  res.clearCookie('username');
-  res.redirect('/urls');
-});
-
-app.get('/urls', (req, res) => {
-  const templateVars = {
-    username: req.cookies.username,
-  };
-  res.render('urls_index', templateVars);
-});
-
-app.get('/urls/new', (req, res) => {
-  const templateVars = {
-    username: req.cookies.username,
-  };
-  res.render('urls_new', templateVars);
-});
-
-app.get('/logout', (req, res) => {
-  res.clearCookie('username');
-  res.clearCookie('session_id');
+  res.clearCookie('user_id');
   res.redirect('/urls');
 });
 
@@ -107,10 +97,35 @@ app.get("/u/:id", (req, res) => {
 });
 
 app.get('/register', (req, res) => {
-  res.render('register');
+  const user = users[req.cookies["user_id"]];
+  const templateVars = { user };
+  res.render('register', templateVars);
+});
+
+app.post('/register', (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    res.status(400).send('Email and Password cannot be blank');
+    return;
+  }
+
+  for (const userId in users) {
+    if (users[userId].email === email) {
+      res.status(400).send('Email already registered');
+      return;
+    }
+  }
+
+  const userId = generateRandomString();
+  users[userId] = { id: userId, email, password };
+  res.cookie('user_id', userId);
+  console.log(users);
+  res.redirect('/urls');
 });
 
 app.listen(PORT, () => {
   console.log(`tinyapp listening on port ${PORT}!`);
 });
+
+
 
