@@ -14,8 +14,8 @@ const generateRandomString = () => {
 const users = {
   userRandomID: {
     id: "userRandomID",
-    email: "a@a.com",
-    password: "1234",
+    email: "user@example.com",
+    password: "purple-monkey-dinosaur",
   },
   user2RandomID: {
     id: "user2RandomID",
@@ -29,25 +29,16 @@ const urlDatabase = {
   "9sm5xK": "http://www.google.com",
 };
 
-const getUserByEmail = (email) => {
-  for (const userId in users) {
-    if (users[userId].email === email) {
-      return users[userId];
-    }
-  }
-  return null;
-};
-
 app.get("/", (req, res) => {
   const user = users[req.cookies["user_id"]];
   const templateVars = { user };
   res.render("home", templateVars);
 });
 
-app.get("/urls", (req, res) => {
+app.get('/urls', (req, res) => {
   const user = users[req.cookies["user_id"]];
   const templateVars = { user, urls: urlDatabase };
-  res.render("urls_index", templateVars);
+  res.render('urls_index', templateVars);
 });
 
 app.get("/urls/new", (req, res) => {
@@ -84,14 +75,50 @@ app.post('/urls/:id', (req, res) => {
   res.redirect('/urls');
 });
 
+app.get('/login', (req, res) => {
+  const user = users[req.cookies["user_id"]];
+  const templateVars = { user };
+  res.render('login', templateVars);
+});
+
 app.post('/login', (req, res) => {
-  const username = req.body.username;
-  res.cookie('user_id', username);
+  const { email, password } = req.body;
+  const user = getUserByEmail(email, users);
+
+  if (!user || user.password !== password) {
+    return res.status(403).send('Invalid email or password');
+  }
+
+  res.cookie('user_id', user.id);
   res.redirect('/urls');
 });
 
 app.post('/logout', (req, res) => {
+  console.log('Logout request received');
   res.clearCookie('user_id');
+  res.redirect('/login');
+});
+
+app.get('/register', (req, res) => {
+  const user = users[req.cookies["user_id"]];
+  const templateVars = { user };
+  res.render('register', templateVars);
+});
+
+app.post('/register', (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).send('Email and Password cannot be blank');
+  }
+
+  if (getUserByEmail(email, users)) {
+    return res.status(400).send('Email already registered');
+  }
+
+  const userId = generateRandomString();
+  users[userId] = { id: userId, email, password };
+  res.cookie('user_id', userId);
   res.redirect('/urls');
 });
 
@@ -105,40 +132,20 @@ app.get("/u/:id", (req, res) => {
   }
 });
 
-app.get('/login', (req, res) => {
-  const user = users[req.cookies["user_id"]];
-  const templateVars = { user };
-  res.render('login', templateVars);
-});
-
-app.get('/register', (req, res) => {
-  const user = users[req.cookies["user_id"]];
-  const templateVars = { user };
-  res.render('register', templateVars);
-});
-
-app.post('/register', (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    res.status(400).send('Email and Password cannot be blank');
-    return;
+const getUserByEmail = function(email, users) {
+  for (const userId in users) {
+    if (users[userId].email === email) {
+      return users[userId];
+    }
   }
+  return null;
+};
 
-  if (getUserByEmail(email)) {
-    res.status(400).send('Email already registered');
-    return;
-  }
-
-  const userId = generateRandomString();
-  users[userId] = { id: userId, email, password };
-  res.cookie('user_id', userId);
-  console.log(users);
-  res.redirect('/urls');
-});
 
 app.listen(PORT, () => {
   console.log(`tinyapp listening on port ${PORT}!`);
 });
+
 
 
 
