@@ -3,6 +3,7 @@ const cookieSession = require('cookie-session');
 const bcrypt = require('bcryptjs');
 const app = express();
 const PORT = 8080;
+const { getUserByEmail } = require('./helpers');
 
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieSession({
@@ -197,19 +198,10 @@ app.get("/u/:id", (req, res) => {
   }
 });
 
-const getUserByEmail = function(email, users) {
-  for (const userId in users) {
-    if (users[userId].email === email) {
-      return users[userId];
-    }
-  }
-  return null;
-};
 
 app.listen(PORT, () => {
   console.log(`TinyApp listening on port ${PORT}!`);
 });
-
 
 
 
