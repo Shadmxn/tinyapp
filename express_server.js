@@ -14,8 +14,8 @@ const generateRandomString = () => {
 const users = {
   userRandomID: {
     id: "userRandomID",
-    email: "user@example.com",
-    password: "purple-monkey-dinosaur",
+    email: "a@a.com",
+    password: "1234",
   },
   user2RandomID: {
     id: "user2RandomID",
@@ -103,6 +103,12 @@ app.get("/u/:id", (req, res) => {
   } else {
     res.status(404).send('Short URL not found');
   }
+});
+
+app.get('/login', (req, res) => {
+  const user = users[req.cookies["user_id"]];
+  const templateVars = { user };
+  res.render('login', templateVars);
 });
 
 app.get('/register', (req, res) => {
