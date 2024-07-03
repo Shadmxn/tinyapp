@@ -29,25 +29,33 @@ const urlDatabase = {
   "9sm5xK": "http://www.google.com",
 };
 
+const requireLogin = (req, res, next) => {
+  const userId = req.cookies["user_id"];
+  if (!userId || !users[userId]) {
+    return res.redirect('/login');
+  }
+  next();
+};
+
 app.get("/", (req, res) => {
   const user = users[req.cookies["user_id"]];
   const templateVars = { user };
   res.render("home", templateVars);
 });
 
-app.get('/urls', (req, res) => {
+app.get('/urls', requireLogin, (req, res) => {
   const user = users[req.cookies["user_id"]];
   const templateVars = { user, urls: urlDatabase };
   res.render('urls_index', templateVars);
 });
 
-app.get("/urls/new", (req, res) => {
+app.get("/urls/new", requireLogin, (req, res) => {
   const user = users[req.cookies["user_id"]];
   const templateVars = { user };
   res.render("urls_new", templateVars);
 });
 
-app.get("/urls/:id", (req, res) => {
+app.get("/urls/:id", requireLogin, (req, res) => {
   const user = users[req.cookies["user_id"]];
   const id = req.params.id;
   const longURL = urlDatabase[id];
@@ -55,20 +63,20 @@ app.get("/urls/:id", (req, res) => {
   res.render("urls_show", templateVars);
 });
 
-app.post("/urls", (req, res) => {
+app.post("/urls", requireLogin, (req, res) => {
   const longURL = req.body.longURL;
   const id = generateRandomString();
   urlDatabase[id] = longURL;
   res.redirect(`/urls/${id}`);
 });
 
-app.post('/urls/:id/delete', (req, res) => {
+app.post('/urls/:id/delete', requireLogin, (req, res) => {
   const urlId = req.params.id;
   delete urlDatabase[urlId];
   res.redirect('/urls');
 });
 
-app.post('/urls/:id', (req, res) => {
+app.post('/urls/:id', requireLogin, (req, res) => {
   const id = req.params.id;
   const newLongURL = req.body.longURL;
   urlDatabase[id] = newLongURL;
@@ -77,8 +85,12 @@ app.post('/urls/:id', (req, res) => {
 
 app.get('/login', (req, res) => {
   const user = users[req.cookies["user_id"]];
-  const templateVars = { user };
-  res.render('login', templateVars);
+  if (user) {
+    res.redirect('/urls');
+  } else {
+    const templateVars = { user };
+    res.render('login', templateVars);
+  }
 });
 
 app.post('/login', (req, res) => {
@@ -94,15 +106,18 @@ app.post('/login', (req, res) => {
 });
 
 app.post('/logout', (req, res) => {
-  console.log('Logout request received');
   res.clearCookie('user_id');
   res.redirect('/login');
 });
 
 app.get('/register', (req, res) => {
   const user = users[req.cookies["user_id"]];
-  const templateVars = { user };
-  res.render('register', templateVars);
+  if (user) {
+    res.redirect('/urls');
+  } else {
+    const templateVars = { user };
+    res.render('register', templateVars);
+  }
 });
 
 app.post('/register', (req, res) => {
@@ -141,10 +156,10 @@ const getUserByEmail = function(email, users) {
   return null;
 };
 
-
 app.listen(PORT, () => {
-  console.log(`tinyapp listening on port ${PORT}!`);
+  console.log(`TinyApp listening on port ${PORT}!`);
 });
+
 
 
 
