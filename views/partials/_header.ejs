@@ -11,7 +11,9 @@
       </div>
       <% if (user) { %>
         <span class="navbar-text">Logged in as: <%= user.email %></span>
-        <a class="nav-item nav-link" href="/logout">Logout</a>
+        <form action="/logout" method="POST">
+          <button type="submit" class="btn btn-link">Logout</button>
+        </form>
       <% } else { %>
         <a class="nav-item nav-link" href="/login">Login</a>
         <a class="nav-item nav-link" href="/register">Register</a>
@@ -19,4 +21,5 @@
     </div>
   </nav>
 </header>
+
 
