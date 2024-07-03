@@ -25,8 +25,14 @@ const users = {
 };
 
 const urlDatabase = {
-  b2xVn2: "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com",
+  b2xVn2: {
+    longURL: "http://www.lighthouselabs.ca",
+    userID: "userRandomID",
+  },
+  "9sm5xK": {
+    longURL: "http://www.google.com",
+    userID: "user2RandomID",
+  },
 };
 
 const requireLogin = (req, res, next) => {
@@ -44,8 +50,15 @@ app.get("/", (req, res) => {
 });
 
 app.get('/urls', requireLogin, (req, res) => {
-  const user = users[req.cookies["user_id"]];
-  const templateVars = { user, urls: urlDatabase };
+  const userId = req.cookies["user_id"];
+  const userUrls = {};
+  for (const urlId in urlDatabase) {
+    if (urlDatabase[urlId].userID === userId) {
+      userUrls[urlId] = urlDatabase[urlId];
+    }
+  }
+  const user = users[userId];
+  const templateVars = { user, urls: userUrls };
   res.render('urls_index', templateVars);
 });
 
@@ -56,41 +69,59 @@ app.get("/urls/new", requireLogin, (req, res) => {
 });
 
 app.get("/urls/:id", requireLogin, (req, res) => {
-  const user = users[req.cookies["user_id"]];
+  const userId = req.cookies["user_id"];
   const id = req.params.id;
-  const longURL = urlDatabase[id];
-  const templateVars = { user, id, longURL };
+  const url = urlDatabase[id];
+  if (!url || url.userID !== userId) {
+    return res.status(403).send("You do not have permission to access this URL.");
+  }
+  const user = users[userId];
+  const templateVars = { user, id, longURL: url.longURL };
   res.render("urls_show", templateVars);
 });
 
 app.post("/urls", requireLogin, (req, res) => {
+  const userId = req.cookies["user_id"];
   const longURL = req.body.longURL;
   const id = generateRandomString();
-  urlDatabase[id] = longURL;
+  urlDatabase[id] = { longURL, userID: userId };
   res.redirect(`/urls/${id}`);
 });
 
 app.post('/urls/:id/delete', requireLogin, (req, res) => {
-  const urlId = req.params.id;
-  delete urlDatabase[urlId];
+  const userId = req.cookies["user_id"];
+  const id = req.params.id;
+  if (!urlDatabase[id]) {
+    return res.status(404).send("URL not found.");
+  }
+  if (urlDatabase[id].userID !== userId) {
+    return res.status(403).send("You do not have permission to delete this URL.");
+  }
+  delete urlDatabase[id];
   res.redirect('/urls');
 });
 
 app.post('/urls/:id', requireLogin, (req, res) => {
+  const userId = req.cookies["user_id"];
   const id = req.params.id;
   const newLongURL = req.body.longURL;
-  urlDatabase[id] = newLongURL;
+  if (!urlDatabase[id]) {
+    return res.status(404).send("URL not found.");
+  }
+  if (urlDatabase[id].userID !== userId) {
+    return res.status(403).send("You do not have permission to edit this URL.");
+  }
+  urlDatabase[id].longURL = newLongURL;
   res.redirect('/urls');
 });
 
 app.get('/login', (req, res) => {
-  const user = users[req.cookies["user_id"]];
-  if (user) {
-    res.redirect('/urls');
-  } else {
-    const templateVars = { user };
-    res.render('login', templateVars);
+  const userId = req.cookies["user_id"];
+  if (userId && users[userId]) {
+    return res.redirect('/urls');
   }
+  const templateVars = { user: null };
+  res.render('login', templateVars);
 });
 
 app.post('/login', (req, res) => {
@@ -111,13 +142,12 @@ app.post('/logout', (req, res) => {
 });
 
 app.get('/register', (req, res) => {
-  const user = users[req.cookies["user_id"]];
-  if (user) {
-    res.redirect('/urls');
-  } else {
-    const templateVars = { user };
-    res.render('register', templateVars);
+  const userId = req.cookies["user_id"];
+  if (userId && users[userId]) {
+    return res.redirect('/urls');
   }
+  const templateVars = { user: null };
+  res.render('register', templateVars);
 });
 
 app.post('/register', (req, res) => {
@@ -139,9 +169,9 @@ app.post('/register', (req, res) => {
 
 app.get("/u/:id", (req, res) => {
   const id = req.params.id;
-  const longURL = urlDatabase[id];
-  if (longURL) {
-    res.redirect(longURL);
+  const url = urlDatabase[id];
+  if (url) {
+    res.redirect(url.longURL);
   } else {
     res.status(404).send('Short URL not found');
   }
@@ -159,6 +189,7 @@ const getUserByEmail = function(email, users) {
 app.listen(PORT, () => {
   console.log(`TinyApp listening on port ${PORT}!`);
 });
+
 
 
 
