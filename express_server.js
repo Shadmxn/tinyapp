@@ -106,7 +106,11 @@ app.get("/u/:id", (req, res) => {
   }
 });
 
+app.get('/register', (req, res) => {
+  res.render('register');
+});
+
 app.listen(PORT, () => {
-  console.log(`Example app listening on port ${PORT}!`);
+  console.log(`tinyapp listening on port ${PORT}!`);
 });
 
