@@ -14,8 +14,8 @@ const generateRandomString = () => {
 const users = {
   userRandomID: {
     id: "userRandomID",
-    email: "a@a.com",
-    password: "1234",
+    email: "user@example.com",
+    password: "purple-monkey-dinosaur",
   },
   user2RandomID: {
     id: "user2RandomID",
@@ -27,6 +27,15 @@ const users = {
 const urlDatabase = {
   b2xVn2: "http://www.lighthouselabs.ca",
   "9sm5xK": "http://www.google.com",
+};
+
+const getUserByEmail = (email) => {
+  for (const userId in users) {
+    if (users[userId].email === email) {
+      return users[userId];
+    }
+  }
+  return null;
 };
 
 app.get("/", (req, res) => {
@@ -109,11 +118,9 @@ app.post('/register', (req, res) => {
     return;
   }
 
-  for (const userId in users) {
-    if (users[userId].email === email) {
-      res.status(400).send('Email already registered');
-      return;
-    }
+  if (getUserByEmail(email)) {
+    res.status(400).send('Email already registered');
+    return;
   }
 
   const userId = generateRandomString();
@@ -126,6 +133,7 @@ app.post('/register', (req, res) => {
 app.listen(PORT, () => {
   console.log(`tinyapp listening on port ${PORT}!`);
 });
+
 
 
 
