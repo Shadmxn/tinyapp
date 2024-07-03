@@ -1,11 +1,15 @@
 const express = require('express');
-const cookieParser = require('cookie-parser');
+const cookieSession = require('cookie-session');
 const bcrypt = require('bcryptjs');
 const app = express();
 const PORT = 8080;
 
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
+app.use(cookieSession({
+  name: 'session',
+  keys: ['key1', 'key2'],
+  maxAge: 24 * 60 * 60 * 1000
+}));
 app.set('view engine', 'ejs');
 
 const generateRandomString = () => {
@@ -37,7 +41,7 @@ const urlDatabase = {
 };
 
 const requireLogin = (req, res, next) => {
-  const userId = req.cookies["user_id"];
+  const userId = req.session.user_id;
   if (!userId || !users[userId]) {
     return res.redirect('/login');
   }
@@ -45,13 +49,13 @@ const requireLogin = (req, res, next) => {
 };
 
 app.get("/", (req, res) => {
-  const user = users[req.cookies["user_id"]];
+  const user = users[req.session.user_id];
   const templateVars = { user };
   res.render("home", templateVars);
 });
 
 app.get('/urls', requireLogin, (req, res) => {
-  const userId = req.cookies["user_id"];
+  const userId = req.session.user_id;
   const userUrls = {};
   for (const urlId in urlDatabase) {
     if (urlDatabase[urlId].userID === userId) {
@@ -64,13 +68,13 @@ app.get('/urls', requireLogin, (req, res) => {
 });
 
 app.get("/urls/new", requireLogin, (req, res) => {
-  const user = users[req.cookies["user_id"]];
+  const user = users[req.session.user_id];
   const templateVars = { user };
   res.render("urls_new", templateVars);
 });
 
 app.get("/urls/:id", requireLogin, (req, res) => {
-  const userId = req.cookies["user_id"];
+  const userId = req.session.user_id;
   const id = req.params.id;
   const url = urlDatabase[id];
   if (!url || url.userID !== userId) {
@@ -82,7 +86,7 @@ app.get("/urls/:id", requireLogin, (req, res) => {
 });
 
 app.post("/urls", requireLogin, (req, res) => {
-  const userId = req.cookies["user_id"];
+  const userId = req.session.user_id;
   const longURL = req.body.longURL;
   const id = generateRandomString();
   urlDatabase[id] = { longURL, userID: userId };
@@ -90,7 +94,7 @@ app.post("/urls", requireLogin, (req, res) => {
 });
 
 app.post('/urls/:id/delete', requireLogin, (req, res) => {
-  const userId = req.cookies["user_id"];
+  const userId = req.session.user_id;
   const id = req.params.id;
   if (!urlDatabase[id]) {
     return res.status(404).render("error", { message: "URL not found." });
@@ -103,7 +107,7 @@ app.post('/urls/:id/delete', requireLogin, (req, res) => {
 });
 
 app.post('/urls/:id', requireLogin, (req, res) => {
-  const userId = req.cookies["user_id"];
+  const userId = req.session.user_id;
   const id = req.params.id;
   const newLongURL = req.body.longURL;
   if (!urlDatabase[id]) {
@@ -117,7 +121,7 @@ app.post('/urls/:id', requireLogin, (req, res) => {
 });
 
 app.get('/login', (req, res) => {
-  const userId = req.cookies["user_id"];
+  const userId = req.session.user_id;
   if (userId && users[userId]) {
     return res.redirect('/urls');
   }
@@ -129,21 +133,30 @@ app.post('/login', (req, res) => {
   const { email, password } = req.body;
   const user = getUserByEmail(email, users);
 
-  if (!user || !bcrypt.compareSync(password, user.password)) {
+  if (!user) {
     return res.status(403).send('Invalid email or password');
   }
 
-  res.cookie('user_id', user.id);
-  res.redirect('/urls');
+  try {
+    if (bcrypt.compareSync(password, user.password)) {
+      req.session.user_id = user.id;
+      return res.redirect('/urls');
+    } else {
+      return res.status(403).send('Invalid email or password');
+    }
+  } catch (err) {
+    console.error('Error comparing passwords:', err);
+    return res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/logout', (req, res) => {
-  res.clearCookie('user_id');
+  req.session = null;
   res.redirect('/login');
 });
 
 app.get('/register', (req, res) => {
-  const userId = req.cookies["user_id"];
+  const userId = req.session.user_id;
   if (userId && users[userId]) {
     return res.redirect('/urls');
   }
@@ -162,11 +175,16 @@ app.post('/register', (req, res) => {
     return res.status(400).send('Email already registered');
   }
 
-  const userId = generateRandomString();
-  const hashedPassword = bcrypt.hashSync(password, 10); // Hashing the password
-  users[userId] = { id: userId, email, password: hashedPassword };
-  res.cookie('user_id', userId);
-  res.redirect('/urls');
+  try {
+    const userId = generateRandomString();
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    users[userId] = { id: userId, email, password: hashedPassword };
+    req.session.user_id = userId;
+    res.redirect('/urls');
+  } catch (err) {
+    console.error('Error hashing password:', err);
+    return res.status(500).send('Internal Server Error');
+  }
 });
 
 app.get("/u/:id", (req, res) => {
