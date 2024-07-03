@@ -1,5 +1,6 @@
 const express = require('express');
 const cookieParser = require('cookie-parser');
+const bcrypt = require('bcryptjs');
 const app = express();
 const PORT = 8080;
 
@@ -15,12 +16,12 @@ const users = {
   userRandomID: {
     id: "userRandomID",
     email: "user@example.com",
-    password: "purple-monkey-dinosaur",
+    password: bcrypt.hashSync("purple-monkey-dinosaur", 10),
   },
   user2RandomID: {
     id: "user2RandomID",
     email: "user2@example.com",
-    password: "dishwasher-funk",
+    password: bcrypt.hashSync("dishwasher-funk", 10),
   },
 };
 
@@ -73,7 +74,7 @@ app.get("/urls/:id", requireLogin, (req, res) => {
   const id = req.params.id;
   const url = urlDatabase[id];
   if (!url || url.userID !== userId) {
-    return res.status(403).send("You do not have permission to access this URL.");
+    return res.status(403).render("error", { message: "You do not have permission to access this URL." });
   }
   const user = users[userId];
   const templateVars = { user, id, longURL: url.longURL };
@@ -92,10 +93,10 @@ app.post('/urls/:id/delete', requireLogin, (req, res) => {
   const userId = req.cookies["user_id"];
   const id = req.params.id;
   if (!urlDatabase[id]) {
-    return res.status(404).send("URL not found.");
+    return res.status(404).render("error", { message: "URL not found." });
   }
   if (urlDatabase[id].userID !== userId) {
-    return res.status(403).send("You do not have permission to delete this URL.");
+    return res.status(403).render("error", { message: "You do not have permission to delete this URL." });
   }
   delete urlDatabase[id];
   res.redirect('/urls');
@@ -106,10 +107,10 @@ app.post('/urls/:id', requireLogin, (req, res) => {
   const id = req.params.id;
   const newLongURL = req.body.longURL;
   if (!urlDatabase[id]) {
-    return res.status(404).send("URL not found.");
+    return res.status(404).render("error", { message: "URL not found." });
   }
   if (urlDatabase[id].userID !== userId) {
-    return res.status(403).send("You do not have permission to edit this URL.");
+    return res.status(403).render("error", { message: "You do not have permission to edit this URL." });
   }
   urlDatabase[id].longURL = newLongURL;
   res.redirect('/urls');
@@ -128,7 +129,7 @@ app.post('/login', (req, res) => {
   const { email, password } = req.body;
   const user = getUserByEmail(email, users);
 
-  if (!user || user.password !== password) {
+  if (!user || !bcrypt.compareSync(password, user.password)) {
     return res.status(403).send('Invalid email or password');
   }
 
@@ -162,7 +163,8 @@ app.post('/register', (req, res) => {
   }
 
   const userId = generateRandomString();
-  users[userId] = { id: userId, email, password };
+  const hashedPassword = bcrypt.hashSync(password, 10); // Hashing the password
+  users[userId] = { id: userId, email, password: hashedPassword };
   res.cookie('user_id', userId);
   res.redirect('/urls');
 });
@@ -189,6 +191,7 @@ const getUserByEmail = function(email, users) {
 app.listen(PORT, () => {
   console.log(`TinyApp listening on port ${PORT}!`);
 });
+
 
 
 
