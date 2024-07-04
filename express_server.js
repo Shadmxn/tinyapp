@@ -5,18 +5,21 @@ const app = express();
 const PORT = 8080;
 const { getUserByEmail } = require('./helpers');
 
+// Middleware
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieSession({
   name: 'session',
   keys: ['key1', 'key2'],
-  maxAge: 24 * 60 * 60 * 1000
+  maxAge: 24 * 60 * 60 * 1000 // 24 hours
 }));
 app.set('view engine', 'ejs');
 
+// Helper function to generate a random string for user IDs and short URLs
 const generateRandomString = () => {
   return Math.random().toString(36).substring(2, 8);
 };
 
+// In-memory databases for users and URLs
 const users = {
   userRandomID: {
     id: "userRandomID",
@@ -41,6 +44,7 @@ const urlDatabase = {
   },
 };
 
+// Middleware to check if the user is logged in
 const requireLogin = (req, res, next) => {
   const userId = req.session.user_id;
   if (!userId || !users[userId]) {
@@ -49,43 +53,71 @@ const requireLogin = (req, res, next) => {
   next();
 };
 
+// Home route redirects to /urls if logged in, otherwise to /login
 app.get("/", (req, res) => {
   const user = users[req.session.user_id];
-  const templateVars = { user };
-  res.render("home", templateVars);
+  if (user) {
+    res.redirect("/urls");
+  } else {
+    res.redirect("/login");
+  }
 });
 
-app.get('/urls', requireLogin, (req, res) => {
+// Display user's URLs
+app.get('/urls', (req, res) => {
+  console.log('Session:', req.session); // Log entire session object
+
   const userId = req.session.user_id;
+  console.log('User ID from session:', userId); // Log the user ID from session
+
+  if (!userId || !users[userId]) {
+    const templateVars = { user: null, message: "Please log in to view your URLs." };
+    console.log("User not logged in or not found"); // Debug logging
+    return res.status(403).render('error', templateVars);
+  }
+  
   const userUrls = {};
   for (const urlId in urlDatabase) {
     if (urlDatabase[urlId].userID === userId) {
       userUrls[urlId] = urlDatabase[urlId];
     }
   }
+  
   const user = users[userId];
   const templateVars = { user, urls: userUrls };
+  console.log("Rendering urls_index with user URLs", templateVars); // Debug logging
   res.render('urls_index', templateVars);
 });
 
+// Display form to create a new URL
 app.get("/urls/new", requireLogin, (req, res) => {
   const user = users[req.session.user_id];
   const templateVars = { user };
   res.render("urls_new", templateVars);
 });
 
-app.get("/urls/:id", requireLogin, (req, res) => {
+// Display a specific URL and its details
+app.get("/urls/:id", (req, res) => {
   const userId = req.session.user_id;
   const id = req.params.id;
   const url = urlDatabase[id];
-  if (!url || url.userID !== userId) {
-    return res.status(403).render("error", { message: "You do not have permission to access this URL." });
+
+  if (!userId || !users[userId]) {
+    const templateVars = { user: null, message: "You need to log in to view URL details." };
+    return res.status(403).render('error', templateVars);
   }
+
+  if (!url || url.userID !== userId) {
+    const templateVars = { user: users[userId], message: "You do not have permission to access this URL." };
+    return res.status(403).render("error", templateVars);
+  }
+
   const user = users[userId];
   const templateVars = { user, id, longURL: url.longURL };
   res.render("urls_show", templateVars);
 });
 
+// Create a new short URL
 app.post("/urls", requireLogin, (req, res) => {
   const userId = req.session.user_id;
   const longURL = req.body.longURL;
@@ -94,6 +126,7 @@ app.post("/urls", requireLogin, (req, res) => {
   res.redirect(`/urls/${id}`);
 });
 
+// Delete a URL
 app.post('/urls/:id/delete', requireLogin, (req, res) => {
   const userId = req.session.user_id;
   const id = req.params.id;
@@ -107,6 +140,7 @@ app.post('/urls/:id/delete', requireLogin, (req, res) => {
   res.redirect('/urls');
 });
 
+// Update a URL
 app.post('/urls/:id', requireLogin, (req, res) => {
   const userId = req.session.user_id;
   const id = req.params.id;
@@ -121,6 +155,7 @@ app.post('/urls/:id', requireLogin, (req, res) => {
   res.redirect('/urls');
 });
 
+// Login route
 app.get('/login', (req, res) => {
   const userId = req.session.user_id;
   if (userId && users[userId]) {
@@ -130,6 +165,7 @@ app.get('/login', (req, res) => {
   res.render('login', templateVars);
 });
 
+// Handle login form submission
 app.post('/login', (req, res) => {
   const { email, password } = req.body;
   const user = getUserByEmail(email, users);
@@ -141,6 +177,7 @@ app.post('/login', (req, res) => {
   try {
     if (bcrypt.compareSync(password, user.password)) {
       req.session.user_id = user.id;
+      console.log(`User ${user.id} logged in successfully`); // Debug logging
       return res.redirect('/urls');
     } else {
       return res.status(403).send('Invalid email or password');
@@ -151,11 +188,13 @@ app.post('/login', (req, res) => {
   }
 });
 
+// Logout route
 app.post('/logout', (req, res) => {
   req.session = null;
   res.redirect('/login');
 });
 
+// Registration route
 app.get('/register', (req, res) => {
   const userId = req.session.user_id;
   if (userId && users[userId]) {
@@ -165,6 +204,7 @@ app.get('/register', (req, res) => {
   res.render('register', templateVars);
 });
 
+// Handle registration form submission
 app.post('/register', (req, res) => {
   const { email, password } = req.body;
 
@@ -181,6 +221,7 @@ app.post('/register', (req, res) => {
     const hashedPassword = bcrypt.hashSync(password, 10);
     users[userId] = { id: userId, email, password: hashedPassword };
     req.session.user_id = userId;
+    console.log(`User ${userId} registered successfully`); // Debug logging
     res.redirect('/urls');
   } catch (err) {
     console.error('Error hashing password:', err);
@@ -188,6 +229,7 @@ app.post('/register', (req, res) => {
   }
 });
 
+// Redirect short URL to long URL
 app.get("/u/:id", (req, res) => {
   const id = req.params.id;
   const url = urlDatabase[id];
@@ -198,15 +240,7 @@ app.get("/u/:id", (req, res) => {
   }
 });
 
-
+// Start the server
 app.listen(PORT, () => {
   console.log(`TinyApp listening on port ${PORT}!`);
 });
-
-
-
-
-
-
-
-
