@@ -1,3 +1,5 @@
+// Test suite for the getUserByEmail function, using the Chai assertion library.
+
 const { assert } = require('chai');
 const { getUserByEmail } = require('../helpers');
 
